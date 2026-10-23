@@ -1,0 +1,27 @@
+[project]
+name = "tp-2-rl-locomotion-go2"
+version = "0.1.0"
+description = "RL pour la locomotion du robot Unitree Go2"
+readme = "README.md"
+authors = [
+    { name = "Theo Bounac" }
+]
+requires-python = ">=3.10,<3.11" # cyclonedds==0.10.2 prebuild packages only for <3.11
+dependencies = [
+    "mjlab>=1.5.0,<1.6.0",
+    "pygame>=2.6.1",
+    "unitree-sdk2py",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+unitree-sdk2py = { git = "https://github.com/gepetto/unitree_sdk2_python" }
+
+[project.entry-points."mjlab.tasks"]
+Mjlab-Velocity-Flat-Unitree-Go2 = "unitree_go2_velocity:Go2VelocityTask"

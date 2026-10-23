@@ -22,3 +22,5 @@ outputs/
 
 *.bag
 *.db3
+src/tp_2_rl_locomotion_go2.egg-info
+MUJOCO_LOG.TXT

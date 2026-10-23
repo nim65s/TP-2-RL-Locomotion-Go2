@@ -86,7 +86,6 @@ SUMMER-SCHOOL-RL/
   │     ├── cyclonedds
   │     └── unitree_sdk2_python
   ├── doc/
-  ├── docker/
   └── README.md
 ```
 
