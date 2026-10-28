@@ -144,12 +144,8 @@ Vous devriez voir les logs :
 # 🤖 Partie 2: Déploiement 
 ## 1️⃣ Lancer le simulateur MuJoCo
 
-Dans le conteneur :
-
 ```bash
-cd /workspace/SUMMER-SCHOOL-RL/2.Deploy
-
-python Unitree_mujoco/simulate_python/unitree_mujoco.py
+uv run 2.Deploy/Unitree_mujoco/simulate_python/unitree_mujoco.py
 ```
  <p align="center">
   <img src="doc/deploy1.png" width="800">
@@ -181,41 +177,14 @@ Consultez le guide des commandes de MuJoCo :
  
 ---
 
-## 2️⃣ Ouvrir un second terminal dans le même conteneur
-
-Sur la machine hôte :
-
-```bash
-docker ps
-```
-
-Copiez le nom du conteneur, puis exécutez :
-
-```bash
-docker exec -it CONTAINER_NAME bash
-```
-
-Exemple :
-
-```bash
-docker exec -it docker-summer-school-rl-run-8a7194d5a1f7 bash
-```
- <p align="center">
-  <img src="doc/deploy2.png" width="900">
-  <br>
- </p>
- 
----
-
 ## 3️⃣ Lancer le script de déploiement
 
-Dans le second terminal Docker :
+Dans un second terminal :
 
 ```bash
-cd /workspace/SUMMER-SCHOOL-RL/2.Deploy
+# ASSUREZ-VOUS QUE LE ROBOT EST ALLONGÉ ET RÉINITIALISÉ, AVEC L’ÉLASTIQUE DÉSACTIVÉ.
 
-python Deploy_python/deploy.py
-ASSUREZ-VOUS QUE LE ROBOT EST ALLONGÉ ET RÉINITIALISÉ, AVEC L’ÉLASTIQUE DÉSACTIVÉ.
+uv run 2.Deploy/Deploy_python/deploy.py
 ```
 
 Vous devriez voir :
@@ -227,7 +196,7 @@ Vous devriez voir :
 Ou sans le tableau de bord, avec l’option `--debug` :
 
 ```bash
-python Deploy_python/deploy.py --debug
+uv run 2.Deploy/Deploy_python/deploy.py --debug
 ```
 
 Au début, le fichier de déploiement ne fonctionne pas correctement tant que vous n’avez pas terminé le workshop. Le robot va donc simplement tomber après s’être relevé :
