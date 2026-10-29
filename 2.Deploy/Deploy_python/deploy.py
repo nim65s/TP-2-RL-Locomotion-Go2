@@ -1,4 +1,5 @@
 from pathlib import Path
+
 LEGGED_GYM_ROOT_DIR = Path(__file__).resolve().parents[1]
 
 import time
@@ -7,12 +8,21 @@ import torch
 
 from rich.live import Live
 
-from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, ChannelFactoryInitialize
-from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_, unitree_go_msg_dds__LowState_
+from unitree_sdk2py.core.channel import (
+    ChannelPublisher,
+    ChannelSubscriber,
+    ChannelFactoryInitialize,
+)
+from unitree_sdk2py.idl.default import (
+    unitree_go_msg_dds__LowCmd_,
+    unitree_go_msg_dds__LowState_,
+)
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_ as LowCmdGo
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_ as LowStateGo
 from unitree_sdk2py.utils.crc import CRC
-from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import MotionSwitcherClient
+from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import (
+    MotionSwitcherClient,
+)
 from unitree_sdk2py.go2.sport.sport_client import SportClient
 from unitree_sdk2py.go2.robot_state.robot_state_client import RobotStateClient
 from common.command_helper import create_zero_cmd, create_damping_cmd, init_cmd_go
@@ -48,18 +58,34 @@ KPS = [20.0] * 12
 KDS = [0.5] * 12
 DEFAULT_ANGLES = np.array(
     [
-        0.1,  0.8, -1.5,
-       -0.1,  0.8, -1.5,
-        0.1,  1.0, -1.5,
-       -0.1,  1.0, -1.5,
+        0.1,
+        0.8,
+        -1.5,
+        -0.1,
+        0.8,
+        -1.5,
+        0.1,
+        1.0,
+        -1.5,
+        -0.1,
+        1.0,
+        -1.5,
     ],
     dtype=np.float32,
 )
 JOINT2MOTOR_IDX = [
-    3, 4, 5,
-    0, 1, 2,
-    9, 10, 11,
-    6, 7, 8,
+    3,
+    4,
+    5,
+    0,
+    1,
+    2,
+    9,
+    10,
+    11,
+    6,
+    7,
+    8,
 ]
 LOWCMD_TOPIC = "rt/lowcmd"
 LOWSTATE_TOPIC = "rt/lowstate"
@@ -69,6 +95,7 @@ LEG_CONFIG = [
     ("RL", 6),
     ("RR", 9),
 ]
+
 
 class ObsNormalizer(torch.nn.Module):
     def __init__(self, num_obs: int, eps: float = 1e-8) -> None:
@@ -124,14 +151,17 @@ def load_trained_policy(path: Path) -> ActorMLP:
     actor_state_dict = checkpoint["actor_state_dict"]
 
     if not any(key.startswith("net.") for key in actor_state_dict):
-        actor_state_dict = {f"net.{key}": value for key, value in actor_state_dict.items()}
+        actor_state_dict = {
+            f"net.{key}": value for key, value in actor_state_dict.items()
+        }
 
     policy.load_state_dict(actor_state_dict)
     policy.eval()
     return policy
 
+
 class Controller(DashboardMixin):
-    def __init__(self,real=False, config=None) -> None:
+    def __init__(self, real=False, config=None) -> None:
         self.real = real
         self.config = config
         self.remote_controller = RemoteController()
@@ -159,8 +189,16 @@ class Controller(DashboardMixin):
         self.low_cmd = unitree_go_msg_dds__LowCmd_()
         self.low_state = unitree_go_msg_dds__LowState_()
 
-        lowcmd_topic = self.config.lowcmd_topic if self.real and self.config is not None else LOWCMD_TOPIC
-        lowstate_topic = self.config.lowstate_topic if self.real and self.config is not None else LOWSTATE_TOPIC
+        lowcmd_topic = (
+            self.config.lowcmd_topic
+            if self.real and self.config is not None
+            else LOWCMD_TOPIC
+        )
+        lowstate_topic = (
+            self.config.lowstate_topic
+            if self.real and self.config is not None
+            else LOWSTATE_TOPIC
+        )
 
         self.lowcmd_publisher = ChannelPublisher(lowcmd_topic, LowCmdGo)
         self.lowcmd_publisher.Init()
@@ -173,12 +211,11 @@ class Controller(DashboardMixin):
             self.wait_for_low_state()
             init_cmd_go(self.low_cmd, weak_motor=self.config.weak_motor)
 
-
     def LowStateHandler(self, msg: LowStateGo):
         self.low_state = msg
         self.low_state_received = True
         self.remote_controller.set(self.low_state.wireless_remote)
-    
+
     def send_cmd(self, cmd: LowCmdGo):
         cmd.crc = CRC().Crc(cmd)
         self.lowcmd_publisher.Write(cmd)
@@ -204,7 +241,9 @@ class Controller(DashboardMixin):
             for j in range(12):
                 motor_idx = JOINT2MOTOR_IDX[j]
                 target_pos = DEFAULT_ANGLES[j]
-                self.low_cmd.motor_cmd[motor_idx].q = init_dof_pos[j] * (1 - alpha) + target_pos * alpha
+                self.low_cmd.motor_cmd[motor_idx].q = (
+                    init_dof_pos[j] * (1 - alpha) + target_pos * alpha
+                )
                 self.low_cmd.motor_cmd[motor_idx].dq = 0.0
                 self.low_cmd.motor_cmd[motor_idx].kp = 40.0
                 self.low_cmd.motor_cmd[motor_idx].kd = 0.6
@@ -228,7 +267,7 @@ class Controller(DashboardMixin):
 
         print("Button [A] received, starting policy control.")
         print("Press [SELECT] button to exit.")
-    
+
     def wait_for_low_state(self):
         print("Waiting for rt/lowstate...")
         while not self.low_state_received:
@@ -267,10 +306,20 @@ class Controller(DashboardMixin):
         total_time = 1.5
         num_step = int(total_time / CONTROL_DT)
         ground_pos = np.array(
-            [-0.35, 1.36, -2.65,
-            0.35, 1.36, -2.65,
-            -0.5,  1.36, -2.65,
-            0.5,  1.36, -2.65],
+            [
+                -0.35,
+                1.36,
+                -2.65,
+                0.35,
+                1.36,
+                -2.65,
+                -0.5,
+                1.36,
+                -2.65,
+                0.5,
+                1.36,
+                -2.65,
+            ],
             dtype=np.float32,
         )
 
@@ -282,7 +331,9 @@ class Controller(DashboardMixin):
             alpha = step / num_step
             for i in range(12):
                 motor_idx = JOINT2MOTOR_IDX[i]
-                self.low_cmd.motor_cmd[motor_idx].q = init_dof_pos[i] * (1 - alpha) + ground_pos[i] * alpha
+                self.low_cmd.motor_cmd[motor_idx].q = (
+                    init_dof_pos[i] * (1 - alpha) + ground_pos[i] * alpha
+                )
                 self.low_cmd.motor_cmd[motor_idx].dq = 0.0
                 self.low_cmd.motor_cmd[motor_idx].kp = 40.0
                 self.low_cmd.motor_cmd[motor_idx].kd = 0.6
@@ -292,54 +343,73 @@ class Controller(DashboardMixin):
 
         print("Robot is on the ground.")
 
-
-
     def run(self):
 
         # ============================== PART 1. OBSERVATION ==================================== #
         ################################# USEFUL VARIABLES ########################################
-        low_state = self.low_state                                                                #
-        ang_vel_scale = 0.25                                                                      #
-                                                                                                  #
-                                                                                                  #
-        gravity_scale = 1                                                                         #
-                                                                                                  #
-                                                                                                  #
-        vx = self.remote_controller.ly                                                            #
-        vy = -self.remote_controller.lx                                                           #
-        wz = -self.remote_controller.rx                                                           #
-        vx_scale = 3.0                                                                            #
-        vy_scale = 2.0                                                                            #
-        wz_scale = 0.5                                                                            #
-                                                                                                  #
-                                                                                                  #
-        JOINT2MOTOR_IDX = [3, 4, 5,                                                               #
-                           0, 1, 2,                                                               #
-                           9, 10, 11,                                                             #
-                           6, 7, 8]                                                               #
-        DEFAULT_ANGLES = np.array([                                                               #
-                                    0.1,  0.8, -1.5,                                              #
-                                   -0.1,  0.8, -1.5,                                              #
-                                    0.1,  1.0, -1.5,                                              #
-                                   -0.1,  1.0, -1.5,                                              #
-                                  ], dtype=np.float32)                                            #
-        pos_scale = 1.0                                                                           #
-                                                                                                  #
-                                                                                                  #
-        vel_scale = 0.05                                                                          #
-                                                                                                  #
+        low_state = self.low_state  #
+        ang_vel_scale = 0.25  #
+        #
+        #
+        gravity_scale = 1  #
+        #
+        #
+        vx = self.remote_controller.ly  #
+        vy = -self.remote_controller.lx  #
+        wz = -self.remote_controller.rx  #
+        vx_scale = 3.0  #
+        vy_scale = 2.0  #
+        wz_scale = 0.5  #
+        #
+        #
+        JOINT2MOTOR_IDX = [
+            3,
+            4,
+            5,  #
+            0,
+            1,
+            2,  #
+            9,
+            10,
+            11,  #
+            6,
+            7,
+            8,
+        ]  #
+        DEFAULT_ANGLES = np.array(
+            [  #
+                0.1,
+                0.8,
+                -1.5,  #
+                -0.1,
+                0.8,
+                -1.5,  #
+                0.1,
+                1.0,
+                -1.5,  #
+                -0.1,
+                1.0,
+                -1.5,  #
+            ],
+            dtype=np.float32,
+        )  #
+        pos_scale = 1.0  #
+        #
+        #
+        vel_scale = 0.05  #
+        #
         ###########################################################################################
 
         # TODO [1] Read base angular velocity from IMU
-        self.ang_vel = None # MUST BE np.array(...)*ang_vel_scale
+        self.ang_vel = None  # MUST BE np.array(...)*ang_vel_scale
 
         # TODO [2] Read quaternion from IMU and Compute gravity orientation from quaternion
         self.gravity = None
 
         # TODO [3] Read remote_command from remote controller
-        if self.use_remote_controller:                                                            
-            self.remote_command[0] = None                                              
-            self.remote_command[1] = None                                            
+        if self.use_remote_controller:
+            self.remote_command[0] = None
+            self.remote_command[1] = None
             self.remote_command[2] = None
 
         # TODO [4] Read dof positions and dof velocities, be careful with the order of the joints: dof_pos[i] -> motor_state[JOINT2MOTOR_IDX[i]]
@@ -348,94 +418,102 @@ class Controller(DashboardMixin):
 
         # TODO [5] Read last action (Nothing to do here: observation remain wrong until you do the policy inference in part 2)
         self.last_action = self.action
-        
+
         # TODO [6] Fill the obs with the right observations values
-        self.obs[:3] = None                                        
+        self.obs[:3] = None
         self.obs[3:6] = None
         self.obs[6:9] = None
-        self.obs[9:21] = None 
+        self.obs[9:21] = None
         self.obs[21:33] = None
-        self.obs[33:45] = None 
+        self.obs[33:45] = None
 
-        # This line put it in a tensor format 
-        observations = torch.from_numpy(self.obs).unsqueeze(0) 
+        # This line put it in a tensor format
+        observations = torch.from_numpy(self.obs).unsqueeze(0)
         # ======================================================================================= #
 
-
-
-
         # //////////////////// REFERENCE DO NOT MODIFY ///////////////////////////// #
-        self.obs_low_state_ref = self.low_state                                      #
-        self.obs_remote_ref = {                                                      #
-            "ly": getattr(self.remote_controller, "ly", 0.0),                        #
-            "lx": getattr(self.remote_controller, "lx", 0.0),                        #
-            "rx": getattr(self.remote_controller, "rx", 0.0),                        #
-        }                                                                            #
-        self.obs_action_ref = self.action.copy() if self.action is not None else None#
+        self.obs_low_state_ref = self.low_state  #
+        self.obs_remote_ref = {  #
+            "ly": getattr(self.remote_controller, "ly", 0.0),  #
+            "lx": getattr(self.remote_controller, "lx", 0.0),  #
+            "rx": getattr(self.remote_controller, "rx", 0.0),  #
+        }  #
+        self.obs_action_ref = self.action.copy() if self.action is not None else None  #
         # ////////////////////////////////////////////////////////////////////////// #
-
-
-
 
         # ================================ PART 2. POLICY =================================== #
         ################################# USEFUL VARIABLES ####################################
-        policy = self.policy                                                                  #
-        observations = observations                                                           #
-                                                                                              #
-        DEFAULT_ANGLES = np.array([                                                           #
-                                    0.1,  0.8, -1.5,                                          #
-                                   -0.1,  0.8, -1.5,                                          #
-                                    0.1,  1.0, -1.5,                                          #
-                                   -0.1,  1.0, -1.5,                                          #
-                                  ], dtype=np.float32)                                        #
-                                                                                              #
-        action_scale = 0.25                                                                   #
-        ####################################################################################### 
+        policy = self.policy  #
+        observations = observations  #
+        #
+        DEFAULT_ANGLES = np.array(
+            [  #
+                0.1,
+                0.8,
+                -1.5,  #
+                -0.1,
+                0.8,
+                -1.5,  #
+                0.1,
+                1.0,
+                -1.5,  #
+                -0.1,
+                1.0,
+                -1.5,  #
+            ],
+            dtype=np.float32,
+        )  #
+        #
+        action_scale = 0.25  #
+        #######################################################################################
 
-        # TODO [7] Inference of the policy with the observation tensor                                                                                                                
-        self.action = torch.zeros((NUM_ACTIONS,), dtype=torch.float32)   
-        
+        # TODO [7] Inference of the policy with the observation tensor
+        self.action = torch.zeros((NUM_ACTIONS,), dtype=torch.float32)
 
-        # This line just put it in the format expected by the robot (Do not modify)                                          
+        # This line just put it in the format expected by the robot (Do not modify)
         self.action = self.action.detach().cpu().numpy().astype(np.float32).squeeze()
-        action = self.action   
+        action = self.action
 
-        # TODO [8] Fill the target position using the policy output (action)                                                                                
-        self.target_joint_position = None                
+        # TODO [8] Fill the target position using the policy output (action)
+        self.target_joint_position = None
         # =================================================================================== #
-
-
-
-
 
         # ================================ PART 3. ACTION ================================= #
         ################################# USEFUL VARIABLES ##################################
-        JOINT2MOTOR_IDX = [3, 4, 5,                                                         #
-                           0, 1, 2,                                                         #
-                           9, 10, 11,                                                       #
-                           6, 7, 8]                                                         #
-                                                                                            #
-        target_joint_position = self.target_joint_position                                  #
-                                                                                            #
-        KPS = [20.0] * 12                                                                   #
-        KDS = [0.5] * 12                                                                    #
+        JOINT2MOTOR_IDX = [
+            3,
+            4,
+            5,  #
+            0,
+            1,
+            2,  #
+            9,
+            10,
+            11,  #
+            6,
+            7,
+            8,
+        ]  #
+        #
+        target_joint_position = self.target_joint_position  #
+        #
+        KPS = [20.0] * 12  #
+        KDS = [0.5] * 12  #
         #####################################################################################
 
-        # TODO [9] Fill the PD controller with the target command (target_joint_pos) and match the indexes beetwen PD controller and policy 
-        for i in range(12):                                                                 
-            motor_idx = 0                                        
-            self.low_cmd.motor_cmd[motor_idx].q =  0.0 # float
-            self.low_cmd.motor_cmd[motor_idx].dq = 0.0 # float                                 
-            self.low_cmd.motor_cmd[motor_idx].kp = 0.0 # float                              
-            self.low_cmd.motor_cmd[motor_idx].kd = 0.0 # float                              
-            self.low_cmd.motor_cmd[motor_idx].tau = 0.0 # do not modify
+        # TODO [9] Fill the PD controller with the target command (target_joint_pos) and match the indexes beetwen PD controller and policy
+        for i in range(12):
+            motor_idx = 0
+            self.low_cmd.motor_cmd[motor_idx].q = 0.0  # float
+            self.low_cmd.motor_cmd[motor_idx].dq = 0.0  # float
+            self.low_cmd.motor_cmd[motor_idx].kp = 0.0  # float
+            self.low_cmd.motor_cmd[motor_idx].kd = 0.0  # float
+            self.low_cmd.motor_cmd[motor_idx].tau = 0.0  # do not modify
         self.send_cmd(self.low_cmd)
 
-        self.counter += 1                                                         
+        self.counter += 1
         time.sleep(CONTROL_DT)
         # ================================================================================= #
-
-
 
 
 if __name__ == "__main__":
@@ -488,3 +566,4 @@ if __name__ == "__main__":
             controller.send_cmd(controller.low_cmd)
 
     print("Exit")
+
