@@ -401,31 +401,37 @@ class Controller(DashboardMixin):
         ###########################################################################################
 
         # TODO [1] Read base angular velocity from IMU
-        self.ang_vel = None  # MUST BE np.array(...)*ang_vel_scale
+        self.ang_vel = np.array(low_state.imu_state.gyroscope) * ang_vel_scale
 
         # TODO [2] Read quaternion from IMU and Compute gravity orientation from quaternion
-        self.gravity = None
+        self.gravity = (
+            get_gravity_orientation(low_state.imu_state.quaternion) * gravity_scale
+        )
 
         # TODO [3] Read remote_command from remote controller
         if self.use_remote_controller:
-            self.remote_command[0] = None
-            self.remote_command[1] = None
-            self.remote_command[2] = None
+            self.remote_command[0] = vx * vx_scale
+            self.remote_command[1] = vy * vy_scale
+            self.remote_command[2] = wz * wz_scale
 
         # TODO [4] Read dof positions and dof velocities, be careful with the order of the joints: dof_pos[i] -> motor_state[JOINT2MOTOR_IDX[i]]
-        self.dof_pos = None
-        self.dof_vel = None
+        self.dof_pos = [
+            (low_state.motor_state[JOINT2MOTOR_IDX[i]].q - DEFAULT_ANGLES[i])
+            * pos_scale
+            for i in range(12)
+        ]
+        self.dof_vel = [low_state.motor_state[i].dq * vel_scale for i in range(12)]
 
         # TODO [5] Read last action (Nothing to do here: observation remain wrong until you do the policy inference in part 2)
         self.last_action = self.action
 
         # TODO [6] Fill the obs with the right observations values
-        self.obs[:3] = None
-        self.obs[3:6] = None
-        self.obs[6:9] = None
-        self.obs[9:21] = None
-        self.obs[21:33] = None
-        self.obs[33:45] = None
+        self.obs[:3] = self.ang_vel
+        self.obs[3:6] = self.gravity
+        self.obs[6:9] = self.remote_command
+        self.obs[9:21] = self.dof_pos
+        self.obs[21:33] = self.dof_vel
+        self.obs[33:45] = self.last_action
 
         # This line put it in a tensor format
         observations = torch.from_numpy(self.obs).unsqueeze(0)
@@ -468,14 +474,14 @@ class Controller(DashboardMixin):
         #######################################################################################
 
         # TODO [7] Inference of the policy with the observation tensor
-        self.action = torch.zeros((NUM_ACTIONS,), dtype=torch.float32)
+        self.action = policy(observations)
 
         # This line just put it in the format expected by the robot (Do not modify)
         self.action = self.action.detach().cpu().numpy().astype(np.float32).squeeze()
         action = self.action
 
         # TODO [8] Fill the target position using the policy output (action)
-        self.target_joint_position = None
+        self.target_joint_position = action * action_scale + DEFAULT_ANGLES
         # =================================================================================== #
 
         # ================================ PART 3. ACTION ================================= #
@@ -503,11 +509,11 @@ class Controller(DashboardMixin):
 
         # TODO [9] Fill the PD controller with the target command (target_joint_pos) and match the indexes beetwen PD controller and policy
         for i in range(12):
-            motor_idx = 0
-            self.low_cmd.motor_cmd[motor_idx].q = 0.0  # float
+            motor_idx = JOINT2MOTOR_IDX[i]
+            self.low_cmd.motor_cmd[motor_idx].q = target_joint_position[i]
             self.low_cmd.motor_cmd[motor_idx].dq = 0.0  # float
-            self.low_cmd.motor_cmd[motor_idx].kp = 0.0  # float
-            self.low_cmd.motor_cmd[motor_idx].kd = 0.0  # float
+            self.low_cmd.motor_cmd[motor_idx].kp = KPS[i]
+            self.low_cmd.motor_cmd[motor_idx].kd = KDS[i]
             self.low_cmd.motor_cmd[motor_idx].tau = 0.0  # do not modify
         self.send_cmd(self.low_cmd)
 
@@ -566,4 +572,3 @@ if __name__ == "__main__":
             controller.send_cmd(controller.low_cmd)
 
     print("Exit")
-
